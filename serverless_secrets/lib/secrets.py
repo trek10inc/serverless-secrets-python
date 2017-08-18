@@ -1,6 +1,6 @@
 import os
 import re
-from providers import *
+from serverless_secrets.providers import *
 
 class secrets(object):
     default_options = {
@@ -15,13 +15,16 @@ class secrets(object):
         self.merged_options = dict()
         self.merged_options.update(self.default_options)
         self.merged_options.update(options)
-        if os.environ["IS_OFFLINE"] && self.merged_options["allow_offline"]
+        if os.environ.get("IS_OFFLINE") is not None and self.merged_options["allow_offline"]:
             self.merged_options["provider"] = "offline"
 
+        provider_options = self.merged_options.get("provider_options", {})
+        offline_options = self.merged_options.get("offline_options", {})
+
         if self.merged_options["provider"] == "aws":
-            self.provider = aws(self.merged_options["provider_options"])
-        else if self.merged_options["provider"] == "offline":
-            self.provider = offline(self.merged_options["offline_options"])
+            self.provider = aws(provider_options)
+        elif self.merged_options["provider"] == "offline":
+            self.provider = offline(offline_options)
         else:
             raise ValueError("Provider not supported: ", self.merged_options["provider"])
 

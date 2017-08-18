@@ -4,7 +4,7 @@ import os
 class aws(object):
     default_options = {
         'apiVersion': '2014-11-06',
-        'region': os.environ["AWS_DEFAULT_REGION"] || "us-east-1"
+        'region': os.getenv('AWS_REGION', 'us-east-1')
     }
 
     def __init__(self, options):

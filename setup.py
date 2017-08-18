@@ -1,7 +1,7 @@
 from distutils.core import setup
 setup(
-  name = 'serverless-secrets',
-  packages = ['serverless-secrets'], # this must be the same as the name above
+  name = 'serverless_secrets',
+  packages = ['serverless_secrets'], # this must be the same as the name above
   version = '0.1',
   description = 'A library for creating secrets for use in serverless applications',
   author = 'Trek10',
