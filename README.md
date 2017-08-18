@@ -81,7 +81,7 @@ Provided by [Serverless Secrets](https://github.com/trek10inc/serverless-secrets
 // Given: a secret named 'myParameter' is stored in SSM with value 'mySecret'
 // Given: an environment variable named 'ss__myVar' exists with a value of 'myParameter'
 
-from serverless-secrets import *
+from serverless_secrets import *
 import os
 
 def hello(event, context):
@@ -95,7 +95,7 @@ def hello(event, context):
 ```
 // Given: a secret named 'myParameter' is stored in SSM with value 'mySecret'
 
-from serverless-secrets import *
+from serverless_secrets import *
 import os
 
 def hello(event, context):
