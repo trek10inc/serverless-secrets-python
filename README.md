@@ -2,6 +2,8 @@
 
 *A no fuss way of getting secrets into your Serverless functions*
 
+If you're looking for the node version or the plugin information see [Serverless Secrets](https://github.com/trek10inc/serverless-secrets)
+
 **Problem:** The Serverless project currently offers no good way of managing secrets.
 You could put them in with your environment variables, but what if you are working in a team?
 You could put it in the repo, but "secrets" in a git repo is bad practice.
@@ -31,23 +33,11 @@ plugins:
   - serverless-secrets
 ```
 
-Add custom configuration to `serverless.yml`:
-```
-custom:
-  secrets:
-    keys:
-      default: "alias/aws/ssm"
-      anotherKey: "alias/myOtherKey"
-```
-
-During encryption you can specify a key id with `--key` or set a `default` KMS key id in project
-custom configs. You can also "shortcut" reference the keys via their config names.
-
 ### Setup Python
 In the root of your Serverless project:
 `npm install serverless-python-requirements --save`
 
-Create your requirements.txt file and add serverless-secrets
+Create your requirements.txt file and add serverless_secrets
 
 ## Environment variables
 
@@ -81,7 +71,7 @@ Provided by [Serverless Secrets](https://github.com/trek10inc/serverless-secrets
 // Given: a secret named 'myParameter' is stored in SSM with value 'mySecret'
 // Given: an environment variable named 'ss__myVar' exists with a value of 'myParameter'
 
-from serverless_secrets import *
+from serverless_secrets import secrets
 import os
 
 def hello(event, context):
@@ -95,7 +85,7 @@ def hello(event, context):
 ```
 // Given: a secret named 'myParameter' is stored in SSM with value 'mySecret'
 
-from serverless_secrets import *
+from serverless_secrets import secrets
 import os
 
 def hello(event, context):
