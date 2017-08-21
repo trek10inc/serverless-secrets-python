@@ -1,8 +1,6 @@
 ![serverless_secrets_logo](https://cloud.githubusercontent.com/assets/1689118/15905519/23bf2208-2d83-11e6-96fb-7dc1edd359ee.png)
 
-*A no fuss way of getting secrets into your Serverless functions*
-
-If you're looking for the node version or the plugin information see [Serverless Secrets](https://github.com/trek10inc/serverless-secrets)
+*A no fuss way of getting secrets into your Serverless functions. If you're looking for the node version or the plugin information see [Serverless Secrets](https://github.com/trek10inc/serverless-secrets).*
 
 **Problem:** The Serverless project currently offers no good way of managing secrets.
 You could put them in with your environment variables, but what if you are working in a team?
