@@ -1,163 +1,252 @@
 ![serverless_secrets_logo](https://cloud.githubusercontent.com/assets/1689118/15905519/23bf2208-2d83-11e6-96fb-7dc1edd359ee.png)
 
-*A no fuss way of getting secrets into your Serverless functions. If you're looking for the node version or the plugin information see [Serverless Secrets](https://github.com/trek10inc/serverless-secrets).*
+*An opinionated tool for safely managing and deploying Serverless projects and their secrets. If you're looking for the node version or the plugin information see [Serverless Secrets](https://github.com/trek10inc/serverless-secrets)*
 
-**Problem:** The Serverless project currently offers no good way of managing secrets.
+## Contents
+- [Why](#why)
+- [Requirements](#requirements)
+- [Configuration](#configuration)
+- [CLI](#cli)
+- [Client](#client)
+- [Misc](#misc)
+
+## Why?
+
+**Problem:** The Serverless framework currently offers no way to manage secrets, keys, etc.
 You could put them in with your environment variables, but what if you are working in a team?
 You could put it in the repo, but "secrets" in a git repo is bad practice.
+You could use other tools to simply encrypt with KMS, but you end up storing them in S3 or back in the repo again.
+Also, none of these solutions ensures that your secrets have actually been created before deployment...
 
-**Solution:** Use the EC2 System Manager Parameter Store to store your secrets,
-and use magic environment variables or explicit calls in your code. That's it!
+**Solution:** Serverless Secrets stores your secrets in a place designed for secrets. For AWS, this is
+the EC2 Parameter Store, which supports encryption, including custom KMS keys. In addition, Serverless
+Secrets offers automated validation of your secrets' presence, making your deployments that much closer
+to **bulletproof (TM)**.
 
-**Requires Python 2.7**
+## Requirements
 
-**Serverless Secrets Python is designed for use with Serverless 1.x.**
+### Local requirements
 
-## Provider support
+Node.js 6.5 or greater for CLI.
 
-Currently, Serverless Secrets Python supports AWS only. However, it has been designed to support
-other providers down the road. If you are interested, please feel free to send a PR.
+### Client requirements
 
-## Project setup
+The bundled client is for Python only. For other languages, see the following table.
 
-### Install Serverless Secrets plugin
+| Language   | Link                                                                                               |
+|------------|----------------------------------------------------------------------------------------------------|
+| Node.js    | [https://github.com/trek10inc/serverless-secrets](https://github.com/trek10inc/serverless-secrets) |
+
+If you develop a client, please send us a PR to link to your client. All clients should allow for multi-provider support.
+Clients need only implement the `getSecret` provider method.
+
+### Framework requirements
+Serverless Secrets 1.0.0 and greater is designed for use with Serverless 1.x.
+
+### Provider requirements
+
+Currently, Serverless Secrets only supports AWS. However, it has been designed with support for
+other providers in mind down the road. We welcome PRs for this too.
+
+#### AWS
+
+The bundled client requires Python 2/3 (or greater in the future). Feel free to develop and contribute your
+own clients for other languages.
+
+### Offline support
+
+Serverless Secrets should work with [Serverless Offline](https://github.com/dherault/serverless-offline),
+but not in a fully offline (no Internet connection) setting. You will still need access to your provider
+to load the secrets.
+
+## Configuration
+
+### Adding Serverless Secrets Plugin to your project
 
 In the root of your Serverless project:
-`npm install serverless-secrets --save` or `yarn add serverless-secrets`
+`npm install serverless-secrets --save-dev` or `yarn add serverless-secrets --dev`
 
-Add the plugin in `serverless.yml`:
+Add the plugin to your `serverless.yml`:
 ```
 plugins:
   - serverless-secrets
 ```
 
-### Setup Python
+### Adding serverless_secrets to your project
+
 In the root of your Serverless project:
 `npm install serverless-python-requirements --save`
 
 Create your requirements.txt file and add serverless_secrets
 
-## Environment variables
+*This is only a suggestion. If your prefer an alternate method of setting up python requirements feel free to do so.*
 
-One way to use Serverless Secrets is to make magic environment variables, which get loaded up with the secret
-value at runtime. `secrets.loadFromEnv` uses a configurable regex to find the environment variables to be
-created (or replaced). The default regex is `^ss__` (that's 2 underscores). Decryption is done automatically, and
-the full plaintext will be loaded into the environment variable. You may still want to do post processing on it,
-particularly in the case of the files.
+### Environment Secrets
+
+With a standard Serverless project, you can use the `envrionment` property to add environment variables
+to individual functions as well as to all of your functions via the `provider` section. We augment this
+concept by adding an `environmentSecrets` section to the provider and any function. Just like
+`environment`, the properties under the `environmentSecrets` property become environment variables,
+with the keys becoming the environment variable names. However, the values of the properties under
+`environmentSecrets` are the names of the secrets in the secure store (e.g. Parameter Store for AWS).
+Once you have set your secrets with the CLI (see below), just make sure they are all listed correctly in
+`environmentSecrets`. You should not duplicate any `environmentSecrets` keys in `environment`. This is
+checked during the validation step. Here's an example:
 
 ```
-# secrets.loadByEnv loads the value of a stored secret
-# named 'myParameter' into environment variable myVar
 provider:
   environment:
-    ss__myVar: myParameter
+    API_USER: asdf@asdf.com
+  environmentSecrets:
+    API_KEY: '/my-project/${opt:stage}/API_KEY'
 ```
 
-## Offline support
+After loading the secrets, `os.environ[API_KEY]` would contain the stored secret value.
 
-Coming Soon
+### custom.serverlessSecrets section
+
+There are a number of options avaliable to customize how Serverless Secrets operates. These should be
+set under `custom.serverlessSecrets` in your `serverless.yml`. Here's an example showing that the
+secrets are stored in us-west-2 and listing 2 KMS keys for use with the CLI:
+
+```
+custom:
+  serverlessSecrets:
+    providerOptions:
+      region: us-west-2
+    keys:
+      default: "alias/myDefaultKey"
+      anotherKey: "alias/myOtherKey"
+```
+
+#### options
+
+The following options apply to both the custom section *and the client methods*. The custom section
+values will be deployed to your functions and become the default values for the client methods.
+
+- `throwOnMissingSecret` - boolean: If set to true, an error will be thrown if any secret
+is unable to be retrieved. Default value: `false`.
+- `logOnMissingSecret` - boolean: If set to true, an message will be logged if any secret
+is unable to be retrieved. Default value: `true`.
+- `providerOptions` - object: The options object to be passed to the CLI/client provider. This will
+*overwrite* the default provider options.
+  - Default AWS provider options:
+  ```
+  {
+    apiVersion: '2014-11-06',
+    region: os.environ.get('AWS_DEFAULT_REGION', 'us-east-1')
+  }
+  ```
+
+The following options apply only to the custom section as they are only used in deploy/package CLI
+operations:
+
+- `skipValidation` - boolean: If set to true, validation of the existence of your secrets in
+your provider's secret store will not be performed during deployment/packaging operations.
+Default value: `false`.
+- `omitPermissions` - boolean: If set to true, permissions will not automatically be added
+to your functions' IAM roles to allow them access to secrets. In that case, you will need to add
+those permissions manually. Default value: `false`.
+  - AWS: This grants permission to the `ssm:GetParameters` action.
+- `resourceForIamRole` - string | [string]: This is the string or array of strings that become the
+value of `Resource` in the IAM role that grants the `ssm:GetParameters` action. This does nothing
+if `omitPermissions` is true. Default value: '*'.
 
 ## CLI
 
-Provided by [Serverless Secrets](https://github.com/trek10inc/serverless-secrets).
+Provided by [Serverless Secrets](https://github.com/trek10inc/serverless-secrets/tree/rewrite#cli).
 
-## Code usage
+### Processing during packaging
 
-*Load secrets based on environment variables*
+Serverless Secrets performs a good amount of its magic during any operation that include packaging of
+your project. Let's cover those steps:
+1. All configuration data is written to a JSON file called `.serverless-secrets.json`.
+Note: while it does not contain any secret data, you probably still ought to add this to your `.gitignore`
+(or other VCS exclusion config).
+2. `.serverless-secrets.json` is added to your package
+3. All of your `environmentSecrets` are converted intact to regular environment variables. This is *strictly*
+for documentation purposes. We find it helpful to be able to see in the provider's console that the secret
+variables exist, even if the values are only the lookup keys. If you remove or change these values, it will
+have no effect.
+4. Permissions to access the secret store are injected into roles.
+5. Secret validation is performed. For details on this process, see the `serverless secrets validate` CLI command.
+It is worth noting that failure to validate still throws an error which makes this useful as part of any good CI
+process.
 
+## Client
+
+The client can automatically load all of your secrets into environment variables, or you can choose to load
+them individually. Decryption is done automatically, meaning that the full plaintext will be loaded into the
+environment variable. You may still want to do post processing on it, particularly in the case of the files.
+
+### `secrets.load(options)`
+
+*Parameters:*
+- `options` - object: The options object as described in the `custom.serverlessSecrets` section above.
+It is merged over the top of the `custom.serverlessSecrets` configuration.
+
+*Returns:* None
+
+*Side effects:* Uses generated configuration to determine the environment variables to be filled
+and the keys to request from the secret store to fill those variables. After the secret store
+responds, the environment variables are then set to the corresponding returned secrets.
+
+*Sample code:*
 ```
-// Given: a secret named 'myParameter' is stored in SSM with value 'mySecret'
-// Given: an environment variable named 'ss__myVar' exists with a value of 'myParameter'
+// Given: a secret named '/my-project/dev/api-key' is stored in SSM with value 'mySecret'
+// Given: an environmentSecret named 'API_KEY' exists with a value of '/my-project/dev/api-key'
 
 from serverless_secrets import secrets
 import os
 
-def hello(event, context):
-    sec = secrets({})
-    sec.loadFromEnv()
-    print os.environ
+def handler(event, context):
+    options = {}
+    secrets.load(options)
+    # os.environ[API_KEY] now contains 'mySecret'
 ```
 
-*Load secrets explicitly into environment variables*
-
-```
-// Given: a secret named 'myParameter' is stored in SSM with value 'mySecret'
-
-from serverless_secrets import secrets
-import os
-
-def hello(event, context):
-    sec = secrets({})
-    sec.loadByName('myVar', 'myParameter')
-    print os.environ
-```
-
-## API
-
-*Parameters:*
-- `options` - object: The configuration object for serverless secrets. This will be merged
- over the top of the defaults
-  - `provider` - string: This must be a supported provider. Default value: `'aws'`.
-  Currently supported providers: aws, offline.
-  - `regex` - string: String version of regex used to select `os.environ` keys for value
-  replacement in `secrets.loadFromEnv`. Default value: `'^ss__'` (that's **2** underscores).
-  - `trimRegex` - boolean: If set to true, the secret represented by environment variable
-  `ss__myVar` will be loaded into environment variable `myVar`. If set to false, the value
-  of environment variable `ss__myVar` will be replaced with the secret value.
-  Default value: `true`.
-  - `allow_offline` - boolean: Enables automatic switch to the offline provider when Serverless
-  Offline is detected. Default value: `true`.
-  - `provider_options` - object: The options object to be passed to the provider, except for the
-  offline provider. This will be merged with the default provider options.
-    - Default AWS provider options:
-    ```
-    {
-        'apiVersion': '2014-11-06',
-        'region': os.getenv('AWS_REGION', 'us-east-1')
-    }
-    ```
-  - `offline_options` - object: The options object to be passed to the offline provider. This
-  is separate from `provider_options` as most users will be be using offline locally but another
-  provider when deploying their project. This will be merged with the default offline provider
-  options.
-    - `path` - string: The path to the JSON file containing offline secrets.
-    Default value: `.param_store.json`.
-
-*Returns:* `secrets` instance
-
-### `secrets.loadFromEnv(options)`
-
-*Parameters:*
-- `options` - object: The configuration object for loadFromEnv. It is merged over the top of
- the module options (which are merged over the defaults). `regex` and `trimRegex` are relevant.
- Replacing provider related options does nothing.
-
-*Side Effects:* Scans `os.environ` for keys that match `environmentVariableSelectionRegex`.
-The corresponding values of the matched keys are requested from the secret store.
-The values of the trimmed (if `trimRegex` is `true`) matched keys are then set to the
-corresponding values retrieved from the secret store.
-
-### `secrets.loadByName(environmentVariableName, parameterName)`
+### `client.load_by_name(environmentVariableName, parameterName, options)`
 
 *Parameters:*
 - `environmentVariableName` - string: name of the key to be added to `os.environ` that
 will contain the retrieved secret value
 - `parameterName` - string: name of the secret to be retrieved from the secret store
+- `options` - object: The options object as described in the `custom.serverlessSecrets` section above.
+It is merged over the top of the `custom.serverlessSecrets` configuration.
 
-*Side Effects:* Retrieves `parameterName` from the secret store and loads it
-into `os.environ[environmentVariableName]`
+*Returns:* Promise
 
-## AWS IAM
+*Side effects:* Retrieves `parameterName` from the secret store and loads it into `os.environ[environmentVariableName]`
 
-Remember to grant your lambda functions access to get parameters from SSM
-in your `serverless.yml`:
+*Sample code:*
 ```
-iamRoleStatements:
-  - Effect: "Allow"
-    Action: "ssm:GetParameters"
-    Resource: "arn:aws:ssm:${region}:${awsAccountId}:parameter/*"
+// Given: a secret named '/my-project/dev/api-key' is stored in SSM with value 'mySecret'
+
+from serverless_secrets import secrets
+import os
+
+def handler(event, context):
+    options = {}
+    secrets.load_by_name("API_KEY", "/my-project/dev/api-key", options)
+    # os.environ[API_KEY] now contains 'mySecret'
 ```
 
-Protip: If you have a good naming convention for your secrets, such as a prefix of 'myapp-dev',
-you can limit access further by making the Resource value be
-`"arn:aws:ssm:${region}:${awsAccountId}:parameter/myapp-{opt:stage}*`
+## Misc
+
+### AWS IAM
+
+If you disable automatic permission injection, remember to grant your lambda functions
+access to get parameters from SSM
+in your `serverless.yml`. Example:
+
+```
+provider:
+  iamRoleStatements:
+    - Effect: "Allow"
+      Action: "ssm:GetParameters"
+      Resource: "arn:aws:ssm:${region}:${awsAccountId}:parameter/*"
+```
+
+## Future feature ideas
+
+- Clone secrets from one region to another

@@ -20,21 +20,5 @@ class aws(object):
             Names=names,
             WithDecryption=True
         )
+        
         return response['Parameters']
-
-    def set_secret(self, name, value, keyId, description=None, is_encrypted=None):
-        if is_encrypted is None:
-            is_encrypted = True
-
-        if description is None:
-            description = 'Created with Serverless Secrets'
-
-        secretType = 'SecureString' if isEncrypted else 'String'
-        response = self.ssm.put_parameter(
-            Name=name,
-            Value=value,
-            Description=description,
-            Type=secretType,
-            KeyId=keyId,
-            Overwrite=True
-        )
