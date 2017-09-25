@@ -1,6 +1,7 @@
 import os
 import re
 import json
+import logging
 from serverless_secrets.providers import aws
 
 class secrets(object):
@@ -21,6 +22,7 @@ class secrets(object):
         return list(set(array))
 
     def load(self, options):
+        logger = logging.getLogger()
         options = options if isinstance(options, dict) else {}
         merged_options = dict(self.secrets[options]) #TODO: Figure this part out
         merged_options.update(options)
@@ -44,7 +46,7 @@ class secrets(object):
         if missing_parameters.length > 0:
             message = "Secrets could not be obtained for the following environment variables: " + ", ".join(missing_parameters)
             if merged_options.logOnMissingSecret:
-                print message
+                logger.info(message)
             if merged_options.throwOnMissingSecret:
                 raise ValueError(message)
 
@@ -57,46 +59,10 @@ class secrets(object):
 
         item = provider.get_secret(parameter_name)
         if item['Name'] == os.environ[env_var_name]:
-            new_env_var_name = regex.sub("", env_var_name) if self.merged_options['trim_regex'] else env_var_name
-            os.environ[new_env_var_name] = item['Value']
+            os.environ[env_var_name] = item['Value']
         else:
-            raise ValueError("Secret could not be obtained for env variable: ", env_var_name)
-
-
-
-
-# 'use strict'
-
-# const path = require('path')
-# const _ = require('lodash')
-# const constants = require('../lib/constants')
-#
-# const secrets = require(path.join(process.cwd(), constants.CONFIG_FILE_NAME))
-#
-# function getStorageProvider (options) {
-#   switch (options.provider) {
-#     case 'aws':
-#       return (require('../lib/providers/aws'))(options.providerOptions || {})
-#     default:
-#       throw new Error(`Provider not supported: ${options.provider}`)
-#   }
-# }
-#
-# function loadByName (envVarName, parameterName, options) {
-#   const mergedOptions = Object.assign({}, secrets.options, options)
-#   const provider = getStorageProvider(mergedOptions)
-#   return provider.getSecret(parameterName).then(data => {
-#     if (data[parameterName]) {
-#       process.env[envVarName] = data[parameterName]
-#     } else {
-#       const message = `Secret could not be obtained for environment variable: ${envVarName}`
-#       if (mergedOptions.logOnMissingSecret) console.log(message)
-#       if (mergedOptions.throwOnMissingSecret) throw new Error(message)
-#     }
-#   })
-# }
-#
-# module.exports = {
-#   load,
-#   loadByName
-# }
+            message = "Secret could not be obtained for environment variable: " + env_var_name
+            if merged_options.logOnMissingSecret:
+                logger.info(message)
+            if merged_options.throwOnMissingSecret:
+                raise ValueError("Secret could not be obtained for env variable: ", env_var_name)
