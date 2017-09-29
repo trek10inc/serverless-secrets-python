@@ -1,2 +1,1 @@
-from aws import *
-from offline import *
+from serverless_secrets.providers.aws import *

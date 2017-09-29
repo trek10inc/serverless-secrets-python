@@ -1,1 +1,1 @@
-from lib import *
+from serverless_secrets.lib import *

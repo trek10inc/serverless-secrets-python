@@ -1,66 +1,74 @@
 import os
 import re
-from serverless_secrets.providers import *
+import json
+import logging
+from serverless_secrets.providers import aws
 
 class secrets(object):
-    default_options = {
-        'provider': 'aws',
-        'regex': '^ss__',
-        'trim_regex': True,
-        'allow_offline': True
-    }
+    CONFIG_FILE_NAME = ".serverless-secrets.json"
 
-    def __init__(self, options):
-        options = options if isinstance(options, dict) else {}
-        self.merged_options = dict()
-        self.merged_options.update(self.default_options)
-        self.merged_options.update(options)
-        if os.environ.get("IS_OFFLINE") is not None and self.merged_options["allow_offline"]:
-            self.merged_options["provider"] = "offline"
-
-        provider_options = self.merged_options.get("provider_options", {})
-        offline_options = self.merged_options.get("offline_options", {})
-
-        if self.merged_options["provider"] == "aws":
-            self.provider = aws(provider_options)
-        elif self.merged_options["provider"] == "offline":
-            self.provider = offline(offline_options)
+    def get_storage_provider(self, options):
+        if options["provider"] == "aws":
+            return aws(options.get("providerOptions", {}))
         else:
-            raise ValueError("Provider not supported: ", self.merged_options["provider"])
+            raise ValueError("Provider not supported: ", options["provider"])
 
-    def unique(self, array):
+    def __init__(self):
+        config_path = os.path.join(os.getcwd(), self.CONFIG_FILE_NAME)
+        with open(config_path) as config:
+            self.secrets = json.load(config)
+
+    def _unique(self, array):
         return list(set(array))
 
-    def loadFromEnv(self, envVarSelectionRegex=None):
-        if envVarSelectionRegex is None:
-            envVarSelectionRegex = self.merged_options['regex']
+    def load(self, options):
+        logger = logging.getLogger()
+        options = options if isinstance(options, dict) else {}
+        merged_options = dict(self.secrets)
+        merged_options.update(options)
 
-        regex = re.compile(envVarSelectionRegex)
-        selected_env_names = list(filter(lambda x: regex.search(x), os.environ))
-        parameter_names = self.unique(list(map(lambda x: os.environ[x], selected_env_names)))
-
+        environment_secrets = dict(self.secrets["environments"]["$global"])
+        handler_name = os.environ.get('_HANDLER', '').split('.')[1]
+        environment_secrets.update(self.secrets["environments"].get(handler_name, {}))
+        parameter_names = self._unique(environment_secrets.values())
         if len(parameter_names) < 1:
-            return []
+            return
 
-        data = self.provider.get_secret(parameter_names)
+        provider = self.get_storage_provider(merged_options)
+        data = provider.get_secret(parameter_names)
+
         missing_parameters = []
 
-        for env_var_name in selected_env_names:
-            for item in data:
-                if item['Name'] == os.environ[env_var_name]:
-                    new_env_var_name = regex.sub("", env_var_name) if self.merged_options['trim_regex'] else env_var_name
-                    os.environ[new_env_var_name] = item['Value']
+        for param in data:
+            param_name = param["Name"]
+            if param_name in environment_secrets.values():
+                for key, val in environment_secrets.iteritems():
+                    if param_name == val:
+                        if key in os.environ:
+                            os.environ[key] = param['Value']
+            else:
+                missing_parameters.append(key)
 
-        #TODO Throw error for missing items? Need to add in the list above just being lazy
-        # if len(missing_parameters) > 0:
-        #     s = ", ".join(missing_parameters)
-        #     raise ValueError("Secrets could not be obtained for the following env variables: ", s)
+        if len(missing_parameters) > 0:
+            message = "Secrets could not be obtained for the following environment variables: " + ", ".join(missing_parameters)
+            if merged_options["logOnMissingSecret"]:
+                logger.info(message)
+            if merged_options["throwOnMissingSecret"]:
+                raise ValueError(message)
 
 
-    def loadByName(self, env_var_name, parameter_name):
-        item = self.provider.get_secret(parameter_name)
+    def load_by_name(self, env_var_name, parameter_name, options):
+        options = options if isinstance(options, dict) else {}
+        merged_options = dict(self.secrets[options]) #TODO: Figure this part out
+        merged_options.update(options)
+        provider = self.get_storage_provider(merged_options)
+
+        item = provider.get_secret(parameter_name)
         if item['Name'] == os.environ[env_var_name]:
-            new_env_var_name = regex.sub("", env_var_name) if self.merged_options['trim_regex'] else env_var_name
-            os.environ[new_env_var_name] = item['Value']
+            os.environ[env_var_name] = item['Value']
         else:
-            raise ValueError("Secret could not be obtained for env variable: ", env_var_name)
+            message = "Secret could not be obtained for environment variable: " + env_var_name
+            if merged_options.logOnMissingSecret:
+                logger.info(message)
+            if merged_options.throwOnMissingSecret:
+                raise ValueError("Secret could not be obtained for env variable: ", env_var_name)
