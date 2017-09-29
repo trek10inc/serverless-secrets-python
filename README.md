@@ -55,9 +55,7 @@ own clients for other languages.
 
 ### Offline support
 
-Serverless Secrets should work with [Serverless Offline](https://github.com/dherault/serverless-offline),
-but not in a fully offline (no Internet connection) setting. You will still need access to your provider
-to load the secrets.
+Serverless Secrets Python does not work with [Serverless Offline](https://github.com/dherault/serverless-offline).
 
 ## Configuration
 
