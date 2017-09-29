@@ -20,5 +20,5 @@ class aws(object):
             Names=names,
             WithDecryption=True
         )
-        
+
         return response['Parameters']
