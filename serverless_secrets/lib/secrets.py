@@ -24,7 +24,7 @@ class secrets(object):
     def load(self, options):
         logger = logging.getLogger()
         options = options if isinstance(options, dict) else {}
-        merged_options = dict(self.secrets)
+        merged_options = dict(self.secrets['options'])
         merged_options.update(options)
 
         environment_secrets = dict(self.secrets["environments"]["$global"])
@@ -42,7 +42,7 @@ class secrets(object):
         for param in data:
             param_name = param["Name"]
             if param_name in environment_secrets.values():
-                for key, val in environment_secrets.iteritems():
+                for key, val in environment_secrets.items():
                     if param_name == val:
                         if key in os.environ:
                             os.environ[key] = param['Value']
