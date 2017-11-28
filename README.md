@@ -61,21 +61,20 @@ Serverless Secrets Python does not work with [Serverless Offline](https://github
 
 ### Adding Serverless Secrets Plugin to your project
 
-In the root of your Serverless project:
-`npm install serverless-secrets --save-dev` or `yarn add serverless-secrets --dev`
-
-Add the plugin to your `serverless.yml`:
+In the root of your Serverless project run:
 ```
-plugins:
-  - serverless-secrets
+serverless plugin install -n serverless-secrets
 ```
 
 ### Adding serverless_secrets to your project
 
-In the root of your Serverless project:
-`npm install serverless-python-requirements --save`
-
-Create your requirements.txt file and add serverless_secrets
+In the root of your Serverless project run this to install
+[serverless-python-requirements](https://github.com/UnitedIncome/serverless-python-requirements)
+and add serverless_secrets to your dependencies:
+```
+serverless plugin install -n serverless-python-requirements
+echo serverless_secrets >> requirements.txt
+```
 
 *This is only a suggestion. If your prefer an alternate method of setting up python requirements feel free to do so.*
 
