@@ -199,7 +199,7 @@ import os
 
 def handler(event, context):
     options = {}
-    secrets.load(options)
+    secrets().load(options)
     # os.environ[API_KEY] now contains 'mySecret'
 ```
 
@@ -225,7 +225,7 @@ import os
 
 def handler(event, context):
     options = {}
-    secrets.load_by_name("API_KEY", "/my-project/dev/api-key", options)
+    secrets().load_by_name("API_KEY", "/my-project/dev/api-key", options)
     # os.environ[API_KEY] now contains 'mySecret'
 ```
 
